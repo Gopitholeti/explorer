@@ -13,11 +13,45 @@
     <link rel="stylesheet" href="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.css">
     
     <style>
-        :root { --bg: #ffffff; --text: #333; --panel: #ffffff; }
-        body.dark-mode { --bg: #121212; --text: #f0f0f0; --panel: #1e1e1e; }
+        :root { 
+            --bg: #ffffff; 
+            --text: #333; 
+            --panel: #ffffff; 
+            --accent: #FF6B6B; /* Soft Coral accent */
+        }
+        body.dark-mode { 
+            --bg: #121212; 
+            --text: #f0f0f0; 
+            --panel: #1e1e1e; 
+            --accent: #FF8787; 
+        }
+
         body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
+        /* Custom Marker Style (Replaces Blue Pins) */
+        .custom-pin {
+            width: 30px;
+            height: 30px;
+            background-color: var(--accent);
+            border: 3px solid white;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .custom-pin::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            transform: rotate(45deg);
+        }
+
+        /* UI Elements */
         .ui-panel {
             position: absolute; bottom: 30px; left: 15px; right: 15px;
             z-index: 1000; background: var(--panel); padding: 15px;
@@ -26,16 +60,19 @@
             max-width: 400px; margin: auto;
         }
 
-        .btn { border: none; padding: 10px; border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .btn-mode { background: #444; color: white; width: 40px; height: 40px; }
+        .btn { border: none; padding: 10px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-mode { background: #444; color: white; width: 40px; height: 40px; font-size: 1.2rem; }
         
-        /* Popup Styling */
-        .popup-container { min-width: 150px; text-align: center; }
+        .popup-container { min-width: 180px; text-align: center; color: #333; }
+        .visit-date { font-size: 0.75rem; color: #777; margin-bottom: 8px; display: block; }
         .popup-img { width: 100%; border-radius: 10px; margin: 10px 0; max-height: 150px; object-fit: cover; }
         .btn-delete { background: #ff3b30; color: white; font-size: 0.7rem; margin-top: 8px; width: 100%; }
-        .btn-photo { background: #007AFF; color: white; font-size: 0.7rem; width: 100%; }
+        .btn-photo { background: var(--accent); color: white; font-size: 0.7rem; width: 100%; }
         
         #file-input { display: none; }
+
+        /* Search Bar Color Polish */
+        .geocoder-control-input { border-radius: 20px !important; }
     </style>
 </head>
 <body class="light-mode">
@@ -45,8 +82,8 @@
 
     <div class="ui-panel">
         <div class="stats">
-            <h3 style="margin:0; font-size: 1rem;">📍 Oz Tracker</h3>
-            <p id="counter" style="margin:2px 0 0; font-size: 0.8rem; color: #888;">0 places</p>
+            <h3 style="margin:0; font-size: 1rem;">🇦🇺 Oz Tracker</h3>
+            <p id="counter" style="margin:2px 0 0; font-size: 0.8rem; color: #888;">0 places explored</p>
         </div>
         <button class="btn btn-mode" onclick="toggleDarkMode()" id="mode-btn">🌙</button>
     </div>
@@ -60,41 +97,72 @@
         let places = JSON.parse(localStorage.getItem('myPlaces') || '[]');
         let activeMarkers = {};
 
+        // Initialize Map
         const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
-        const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+        
+        // Premium Map Tiles (Voyager for Light, DarkMatter for Dark)
+        const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
         const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
         function updateTheme() {
-            if (isDarkMode) { map.removeLayer(lightTiles); darkTiles.addTo(map); document.body.className='dark-mode'; document.getElementById('mode-btn').innerText='☀️'; }
-            else { map.removeLayer(darkTiles); lightTiles.addTo(map); document.body.className='light-mode'; document.getElementById('mode-btn').innerText='🌙'; }
+            if (isDarkMode) { 
+                map.removeLayer(lightTiles); darkTiles.addTo(map); 
+                document.body.className='dark-mode'; document.getElementById('mode-btn').innerText='☀️'; 
+            } else { 
+                map.removeLayer(darkTiles); lightTiles.addTo(map); 
+                document.body.className='light-mode'; document.getElementById('mode-btn').innerText='🌙'; 
+            }
         }
         updateTheme();
 
-        function toggleDarkMode() { isDarkMode = !isDarkMode; localStorage.setItem('dark-mode', isDarkMode); updateTheme(); }
+        function toggleDarkMode() { 
+            isDarkMode = !isDarkMode; 
+            localStorage.setItem('dark-mode', isDarkMode); 
+            updateTheme(); 
+            location.reload(); // Refresh to update marker colors in CSS
+        }
 
+        // Search Tool
         const searchControl = L.esri.Geocoding.geosearch({
-            placeholder: 'Search Oz...',
+            placeholder: 'Find a place...',
             providers: [L.esri.Geocoding.arcgisOnlineProvider({ countries: ['AUS'] })]
         }).addTo(map);
 
         searchControl.on('results', (data) => { if (data.results.length > 0) createPlace(data.results[0].text, data.results[0].latlng); });
-        map.on('click', (e) => { const n = prompt("Name this spot:"); if (n) createPlace(n, e.latlng); });
+        map.on('click', (e) => { const n = prompt("What's this spot called?"); if (n) createPlace(n, e.latlng); });
+
+        function getAESTDate() {
+            return new Intl.DateTimeFormat('en-AU', {
+                timeZone: 'Australia/Sydney',
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }).format(new Date());
+        }
 
         function createPlace(name, latlng) {
             const id = Date.now().toString();
-            const newPlace = { id, name, latlng, img: null };
+            const newPlace = { id, name, latlng, img: null, date: getAESTDate() };
             places.push(newPlace);
             renderMarker(newPlace);
             save();
         }
 
         function renderMarker(place) {
-            const marker = L.marker(place.latlng).addTo(map);
+            // Create the Custom Colored Pin
+            const customIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class='custom-pin'></div>`,
+                iconSize: [30, 42],
+                iconAnchor: [15, 42]
+            });
+
+            const marker = L.marker(place.latlng, { icon: customIcon }).addTo(map);
             activeMarkers[place.id] = marker;
             
             const div = document.createElement('div');
             div.className = 'popup-container';
-            div.innerHTML = `<strong>${place.name}</strong>`;
+            div.innerHTML = `<strong>${place.name}</strong>
+                             <span class="visit-date">${place.date}</span>`;
             
             if (place.img) {
                 const img = document.createElement('img');
@@ -105,13 +173,16 @@
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-photo';
                 btn.innerText = '📸 Add Photo';
-                btn.onclick = () => { document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); document.getElementById('file-input').click(); };
+                btn.onclick = () => { 
+                    document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); 
+                    document.getElementById('file-input').click(); 
+                };
                 div.appendChild(btn);
             }
 
             const delBtn = document.createElement('button');
             delBtn.className = 'btn btn-delete';
-            delBtn.innerText = '🗑️ Delete Pin';
+            delBtn.innerText = '🗑️ Delete';
             delBtn.onclick = () => deletePlace(place.id);
             div.appendChild(delBtn);
 
@@ -132,10 +203,9 @@
         }
 
         function deletePlace(id) {
-            if (confirm("Remove this place?")) {
+            if (confirm("Delete this memory?")) {
                 map.removeLayer(activeMarkers[id]);
                 places = places.filter(p => p.id !== id);
-                delete activeMarkers[id];
                 save();
             }
         }
