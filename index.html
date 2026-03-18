@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Australia Travels</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.css">
+    
+    <style>
+        body { margin: 0; font-family: -apple-system, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        
+        /* Custom styling for the search bar to make it mobile-friendly */
+        .geocoder-control-input {
+            border-radius: 20px !important;
+            padding: 10px 15px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            width: 250px !important;
+        }
+        
+        .stats-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="stats-overlay">
+        <h3 style="margin:0">🦘 My Travels</h3>
+        <p id="counter" style="margin:5px 0 0; color: #666;">0 places visited</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
+    <script src="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.js"></script>
+
+    <script>
+        // 1. Initialize the map centered on Australia
+        const map = L.map('map').setView([-25.2744, 133.7751], 4);
+
+        // 2. Add a clean map layer (CartoDB Positron is very lightweight)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let visitedCount = 0;
+        const counterEl = document.getElementById('counter');
+
+        // 3. Add the Search Control
+        const searchControl = L.esri.Geocoding.geosearch({
+            placeholder: 'Search for a place in Australia...',
+            useMapBounds: false,
+            providers: [
+                L.esri.Geocoding.arcgisOnlineProvider({
+                    countries: ['AUS'] // Restrict search to Australia
+                })
+            ]
+        }).addTo(map);
+
+        // 4. Handle what happens when a place is found
+        searchControl.on('results', function (data) {
+            if (data.results.length > 0) {
+                const result = data.results[0];
+                const marker = L.marker(result.latlng).addTo(map);
+                
+                // Add a popup with the name
+                marker.bindPopup(`<b>${result.text}</b><br>Visited!`).openPopup();
+                
+                // Update counter
+                visitedCount++;
+                counterEl.innerText = `${visitedCount} place${visitedCount > 1 ? 's' : ''} visited`;
+                
+                // Save logic (Local Storage)
+                savePlace(result.text, result.latlng);
+            }
+        });
+
+        // 5. Allow clicking on the map to add a pin manually
+        map.on('click', function(e) {
+            const name = prompt("Name this place:");
+            if (name) {
+                L.marker(e.latlng).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
+                visitedCount++;
+                counterEl.innerText = `${visitedCount} places visited`;
+                savePlace(name, e.latlng);
+            }
+        });
+
+        function savePlace(name, latlng) {
+            const existing = JSON.parse(localStorage.getItem('myPlaces') || '[]');
+            existing.push({ name, latlng });
+            localStorage.setItem('myPlaces', JSON.stringify(existing));
+        }
+
+        // 6. Load saved places on startup
+        window.onload = () => {
+            const saved = JSON.parse(localStorage.getItem('myPlaces') || '[]');
+            saved.forEach(p => {
+                L.marker(p.latlng).addTo(map).bindPopup(`<b>${p.name}</b>`);
+                visitedCount++;
+            });
+            counterEl.innerText = `${visitedCount} places visited`;
+        };
+    </script>
+</body>
+</html>
