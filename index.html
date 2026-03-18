@@ -14,85 +14,47 @@
     <link rel="stylesheet" href="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.css">
     
     <style>
-        :root { 
-            --bg: #ffffff; 
-            --text: #333; 
-            --panel: rgba(255, 255, 255, 0.95); 
-            --accent: #FF6B6B; 
-        }
-        body.dark-mode { 
-            --bg: #121212; 
-            --text: #f0f0f0; 
-            --panel: rgba(30, 30, 30, 0.95); 
-            --accent: #FF8787; 
-        }
+        :root { --bg: #ffffff; --text: #333; --panel: rgba(255, 255, 255, 0.95); --accent: #FF6B6B; }
+        body.dark-mode { --bg: #121212; --text: #f0f0f0; --panel: rgba(30, 30, 30, 0.95); --accent: #FF8787; }
 
         body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
-        #map { height: 100vh; width: 100%; z-index: 1; }
+        #map { height: 100vh; width: 100%; z-index: 1; background: #aad3df; } /* Match ocean color to hide loading */
         
-        /* Custom Pin Styling */
         .custom-pin {
-            width: 24px;
-            height: 24px;
-            background-color: var(--accent);
-            border: 2.5px solid white;
-            border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
-            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 24px; height: 24px; background-color: var(--accent);
+            border: 2px solid white; border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg); box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
         }
-        .custom-pin::after {
-            content: '';
-            width: 8px;
-            height: 8px;
-            background: white;
-            border-radius: 50%;
-            transform: rotate(45deg);
-        }
+        .custom-pin::after { content: ''; width: 8px; height: 8px; background: white; border-radius: 50%; transform: rotate(45deg); }
 
-        /* GPS Pulse Animation */
         .gps-pulse {
-            width: 14px;
-            height: 14px;
-            background-color: #007AFF;
-            border: 2px solid white;
-            border-radius: 50%;
-            box-shadow: 0 0 12px #007AFF;
-            animation: pulse 1.8s infinite;
+            width: 14px; height: 14px; background-color: #007AFF;
+            border: 2px solid white; border-radius: 50%;
+            box-shadow: 0 0 12px #007AFF; animation: pulse 1.8s infinite;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            70% { transform: scale(2.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 0; }
-        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 70% { transform: scale(2.5); opacity: 0; } 100% { transform: scale(1); opacity: 0; } }
 
-        /* Modern Bottom Panel */
         .ui-panel {
             position: absolute; bottom: 35px; left: 15px; right: 15px;
             z-index: 1000; background: var(--panel); padding: 18px;
             border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.2);
             display: flex; justify-content: space-between; align-items: center;
-            max-width: 420px; margin: auto;
-            backdrop-filter: blur(10px);
+            max-width: 420px; margin: auto; backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.2);
         }
 
         .stats h3 { margin: 0; font-size: 1.1rem; letter-spacing: -0.5px; font-weight: 700; }
-        .stats p { margin: 2px 0 0; font-size: 0.85rem; color: #666; font-weight: 500; }
+        .stats p { margin: 2px 0 0; font-size: 0.85rem; color: #666; }
         
         .controls { display: flex; gap: 10px; }
         .btn { border: none; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
         .btn:active { transform: scale(0.92); }
-
         .btn-mode { background: #eee; color: #333; width: 44px; height: 44px; font-size: 1.2rem; }
         body.dark-mode .btn-mode { background: #333; color: white; }
-        
         .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.3rem; }
 
-        /* Popup UI */
         .popup-container { min-width: 180px; text-align: center; }
         .visit-date { font-size: 0.75rem; color: #888; margin-top: 4px; display: block; }
         .popup-img { width: 100%; border-radius: 12px; margin: 10px 0; max-height: 180px; object-fit: cover; }
@@ -101,21 +63,8 @@
         
         #file-input { display: none; }
         
-        /* Search Bar Position Fix */
-        .leaflet-touch .geocoder-control { 
-            margin-top: 55px !important; 
-            width: calc(100% - 30px) !important; 
-            max-width: 400px !important; 
-            left: 50% !important; 
-            transform: translateX(-50%) !important; 
-            position: absolute !important;
-        }
-        .geocoder-control-input { 
-            border-radius: 24px !important; 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; 
-            border: none !important;
-            padding-left: 40px !important;
-        }
+        .leaflet-touch .geocoder-control { margin-top: 55px !important; width: calc(100% - 30px) !important; max-width: 400px !important; left: 50% !important; transform: translateX(-50%) !important; position: absolute !important;}
+        .geocoder-control-input { border-radius: 24px !important; box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; border: none !important; padding-left: 40px !important; height: 45px !important;}
     </style>
 </head>
 <body class="light-mode">
@@ -144,34 +93,33 @@
         let activeMarkers = {};
         let myLocationPulse = null;
 
-        // Initialize Map
-        const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-25.27, 133.77], 4);
+        // Retina detection and zoom snapping to prevent blur
+        const map = L.map('map', { 
+            zoomControl: false, 
+            attributionControl: false,
+            detectRetina: true,
+            zoomSnap: 0.5,
+            zoomDelta: 0.5
+        }).setView([-25.27, 133.77], 4);
         
-        // NEW MAP TILES: Detailed Topographic/Community Style (Like your screenshot)
+        // High-Quality Esri Tiles
         const lightTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19
+            maxZoom: 19,
+            tileSize: 512,
+            zoomOffset: -1
         });
         
-        // Dark Mode Tiles (High detail satellite/streets)
-        const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+        const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            detectRetina: true
+        });
 
         function updateTheme() {
-            if (isDarkMode) { 
-                map.removeLayer(lightTiles); darkTiles.addTo(map); 
-                document.body.className='dark-mode'; document.getElementById('mode-btn').innerText='☀️'; 
-            } else { 
-                map.removeLayer(darkTiles); lightTiles.addTo(map); 
-                document.body.className='light-mode'; document.getElementById('mode-btn').innerText='🌙'; 
-            }
+            if (isDarkMode) { map.removeLayer(lightTiles); darkTiles.addTo(map); document.body.className='dark-mode'; document.getElementById('mode-btn').innerText='☀️'; }
+            else { map.removeLayer(darkTiles); lightTiles.addTo(map); document.body.className='light-mode'; document.getElementById('mode-btn').innerText='🌙'; }
         }
         updateTheme();
 
-        function toggleDarkMode() { 
-            isDarkMode = !isDarkMode; 
-            localStorage.setItem('dark-mode', isDarkMode); 
-            updateTheme(); 
-            location.reload(); 
-        }
+        function toggleDarkMode() { isDarkMode = !isDarkMode; localStorage.setItem('dark-mode', isDarkMode); updateTheme(); location.reload(); }
 
         const searchControl = L.esri.Geocoding.geosearch({
             placeholder: 'Explore Australia...',
@@ -181,17 +129,10 @@
         searchControl.on('results', (data) => { if (data.results.length > 0) createPlace(data.results[0].text, data.results[0].latlng); });
         map.on('click', (e) => { const n = prompt("Where are you?"); if (n) createPlace(n, e.latlng); });
 
-        function getAESTDate() {
-            return new Intl.DateTimeFormat('en-AU', {
-                timeZone: 'Australia/Sydney',
-                dateStyle: 'medium',
-                timeStyle: 'short'
-            }).format(new Date());
-        }
-
         function createPlace(name, latlng) {
             const id = Date.now().toString();
-            const newPlace = { id, name, latlng, img: null, date: getAESTDate() };
+            const dateStr = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
+            const newPlace = { id, name, latlng, img: null, date: dateStr };
             places.push(newPlace);
             renderMarker(newPlace);
             save();
@@ -204,37 +145,20 @@
                 iconSize: [24, 34],
                 iconAnchor: [12, 34]
             });
-
             const marker = L.marker(place.latlng, { icon: customIcon }).addTo(map);
             activeMarkers[place.id] = marker;
-            
             const div = document.createElement('div');
             div.className = 'popup-container';
-            div.innerHTML = `<strong>${place.name}</strong>
-                             <span class="visit-date">${place.date}</span>`;
-            
+            div.innerHTML = `<strong>${place.name}</strong><span class="visit-date">${place.date}</span>`;
             if (place.img) {
-                const img = document.createElement('img');
-                img.src = place.img;
-                img.className = 'popup-img';
-                div.appendChild(img);
+                const img = document.createElement('img'); img.src = place.img; img.className = 'popup-img'; div.appendChild(img);
             } else {
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-photo';
-                btn.innerText = '📸 Add Memory';
-                btn.onclick = () => { 
-                    document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); 
-                    document.getElementById('file-input').click(); 
-                };
+                const btn = document.createElement('button'); btn.className = 'btn btn-photo'; btn.innerText = '📸 Add Memory';
+                btn.onclick = () => { document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); document.getElementById('file-input').click(); };
                 div.appendChild(btn);
             }
-
-            const delBtn = document.createElement('button');
-            delBtn.className = 'btn btn-delete';
-            delBtn.innerText = 'Delete';
-            delBtn.onclick = () => deletePlace(place.id);
-            div.appendChild(delBtn);
-
+            const delBtn = document.createElement('button'); delBtn.className = 'btn btn-delete'; delBtn.innerText = 'Delete';
+            delBtn.onclick = () => deletePlace(place.id); div.appendChild(delBtn);
             marker.bindPopup(div);
         }
 
@@ -243,16 +167,9 @@
             map.on('locationfound', function(e) {
                 map.flyTo(e.latlng, 15);
                 if (!myLocationPulse) {
-                    const myIcon = L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div class='gps-pulse'></div>`,
-                        iconSize: [14, 14],
-                        iconAnchor: [7, 7]
-                    });
+                    const myIcon = L.divIcon({ className: 'custom-div-icon', html: `<div class='gps-pulse'></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
                     myLocationPulse = L.marker(e.latlng, { icon: myIcon }).addTo(map);
-                } else {
-                    myLocationPulse.setLatLng(e.latlng);
-                }
+                } else { myLocationPulse.setLatLng(e.latlng); }
             });
         }
 
@@ -263,29 +180,18 @@
             reader.onload = (e) => {
                 const index = places.findIndex(p => p.id === id);
                 places[index].img = e.target.result;
-                save();
-                location.reload(); 
+                save(); location.reload(); 
             };
             reader.readAsDataURL(file);
         }
 
         function deletePlace(id) {
-            if (confirm("Delete this adventure?")) {
-                map.removeLayer(activeMarkers[id]);
-                places = places.filter(p => p.id !== id);
-                save();
-            }
+            if (confirm("Delete memory?")) { map.removeLayer(activeMarkers[id]); places = places.filter(p => p.id !== id); save(); }
         }
 
-        function save() {
-            localStorage.setItem('myPlaces', JSON.stringify(places));
-            document.getElementById('counter').innerText = `${places.length} adventures logged`;
-        }
+        function save() { localStorage.setItem('myPlaces', JSON.stringify(places)); document.getElementById('counter').innerText = `${places.length} adventures logged`; }
 
-        window.onload = () => {
-            places.forEach(p => renderMarker(p));
-            save();
-        };
+        window.onload = () => { places.forEach(p => renderMarker(p)); save(); };
     </script>
 </body>
 </html>
