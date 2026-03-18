@@ -2,43 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Australia Travels</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Oz Tracker</title>
     
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.css">
     
     <style>
-        body { margin: 0; font-family: -apple-system, sans-serif; }
-        #map { height: 100vh; width: 100%; }
+        :root { --bg: #ffffff; --text: #333; --panel: #ffffff; }
+        body.dark-mode { --bg: #121212; --text: #f0f0f0; --panel: #1e1e1e; }
+        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* Custom styling for the search bar to make it mobile-friendly */
-        .geocoder-control-input {
-            border-radius: 20px !important;
-            padding: 10px 15px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-            width: 250px !important;
+        .ui-panel {
+            position: absolute; bottom: 30px; left: 15px; right: 15px;
+            z-index: 1000; background: var(--panel); padding: 15px;
+            border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex; justify-content: space-between; align-items: center;
+            max-width: 400px; margin: auto;
         }
+
+        .btn { border: none; padding: 10px; border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-mode { background: #444; color: white; width: 40px; height: 40px; }
         
-        .stats-overlay {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
+        /* Popup Styling */
+        .popup-container { min-width: 150px; text-align: center; }
+        .popup-img { width: 100%; border-radius: 10px; margin: 10px 0; max-height: 150px; object-fit: cover; }
+        .btn-delete { background: #ff3b30; color: white; font-size: 0.7rem; margin-top: 8px; width: 100%; }
+        .btn-photo { background: #007AFF; color: white; font-size: 0.7rem; width: 100%; }
+        
+        #file-input { display: none; }
     </style>
 </head>
-<body>
+<body class="light-mode">
 
     <div id="map"></div>
+    <input type="file" id="file-input" accept="image/*">
 
-    <div class="stats-overlay">
-        <h3 style="margin:0">🦘 My Travels</h3>
-        <p id="counter" style="margin:5px 0 0; color: #666;">0 places visited</p>
+    <div class="ui-panel">
+        <div class="stats">
+            <h3 style="margin:0; font-size: 1rem;">📍 Oz Tracker</h3>
+            <p id="counter" style="margin:2px 0 0; font-size: 0.8rem; color: #888;">0 places</p>
+        </div>
+        <button class="btn btn-mode" onclick="toggleDarkMode()" id="mode-btn">🌙</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -46,71 +56,98 @@
     <script src="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.js"></script>
 
     <script>
-        // 1. Initialize the map centered on Australia
-        const map = L.map('map').setView([-25.2744, 133.7751], 4);
+        let isDarkMode = localStorage.getItem('dark-mode') === 'true';
+        let places = JSON.parse(localStorage.getItem('myPlaces') || '[]');
+        let activeMarkers = {};
 
-        // 2. Add a clean map layer (CartoDB Positron is very lightweight)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
+        const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+        const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
-        let visitedCount = 0;
-        const counterEl = document.getElementById('counter');
+        function updateTheme() {
+            if (isDarkMode) { map.removeLayer(lightTiles); darkTiles.addTo(map); document.body.className='dark-mode'; document.getElementById('mode-btn').innerText='☀️'; }
+            else { map.removeLayer(darkTiles); lightTiles.addTo(map); document.body.className='light-mode'; document.getElementById('mode-btn').innerText='🌙'; }
+        }
+        updateTheme();
 
-        // 3. Add the Search Control
+        function toggleDarkMode() { isDarkMode = !isDarkMode; localStorage.setItem('dark-mode', isDarkMode); updateTheme(); }
+
         const searchControl = L.esri.Geocoding.geosearch({
-            placeholder: 'Search for a place in Australia...',
-            useMapBounds: false,
-            providers: [
-                L.esri.Geocoding.arcgisOnlineProvider({
-                    countries: ['AUS'] // Restrict search to Australia
-                })
-            ]
+            placeholder: 'Search Oz...',
+            providers: [L.esri.Geocoding.arcgisOnlineProvider({ countries: ['AUS'] })]
         }).addTo(map);
 
-        // 4. Handle what happens when a place is found
-        searchControl.on('results', function (data) {
-            if (data.results.length > 0) {
-                const result = data.results[0];
-                const marker = L.marker(result.latlng).addTo(map);
-                
-                // Add a popup with the name
-                marker.bindPopup(`<b>${result.text}</b><br>Visited!`).openPopup();
-                
-                // Update counter
-                visitedCount++;
-                counterEl.innerText = `${visitedCount} place${visitedCount > 1 ? 's' : ''} visited`;
-                
-                // Save logic (Local Storage)
-                savePlace(result.text, result.latlng);
-            }
-        });
+        searchControl.on('results', (data) => { if (data.results.length > 0) createPlace(data.results[0].text, data.results[0].latlng); });
+        map.on('click', (e) => { const n = prompt("Name this spot:"); if (n) createPlace(n, e.latlng); });
 
-        // 5. Allow clicking on the map to add a pin manually
-        map.on('click', function(e) {
-            const name = prompt("Name this place:");
-            if (name) {
-                L.marker(e.latlng).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
-                visitedCount++;
-                counterEl.innerText = `${visitedCount} places visited`;
-                savePlace(name, e.latlng);
-            }
-        });
-
-        function savePlace(name, latlng) {
-            const existing = JSON.parse(localStorage.getItem('myPlaces') || '[]');
-            existing.push({ name, latlng });
-            localStorage.setItem('myPlaces', JSON.stringify(existing));
+        function createPlace(name, latlng) {
+            const id = Date.now().toString();
+            const newPlace = { id, name, latlng, img: null };
+            places.push(newPlace);
+            renderMarker(newPlace);
+            save();
         }
 
-        // 6. Load saved places on startup
+        function renderMarker(place) {
+            const marker = L.marker(place.latlng).addTo(map);
+            activeMarkers[place.id] = marker;
+            
+            const div = document.createElement('div');
+            div.className = 'popup-container';
+            div.innerHTML = `<strong>${place.name}</strong>`;
+            
+            if (place.img) {
+                const img = document.createElement('img');
+                img.src = place.img;
+                img.className = 'popup-img';
+                div.appendChild(img);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-photo';
+                btn.innerText = '📸 Add Photo';
+                btn.onclick = () => { document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); document.getElementById('file-input').click(); };
+                div.appendChild(btn);
+            }
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn btn-delete';
+            delBtn.innerText = '🗑️ Delete Pin';
+            delBtn.onclick = () => deletePlace(place.id);
+            div.appendChild(delBtn);
+
+            marker.bindPopup(div);
+        }
+
+        function uploadPhoto(event, id) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const index = places.findIndex(p => p.id === id);
+                places[index].img = e.target.result;
+                save();
+                location.reload(); 
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function deletePlace(id) {
+            if (confirm("Remove this place?")) {
+                map.removeLayer(activeMarkers[id]);
+                places = places.filter(p => p.id !== id);
+                delete activeMarkers[id];
+                save();
+            }
+        }
+
+        function save() {
+            localStorage.setItem('myPlaces', JSON.stringify(places));
+            document.getElementById('counter').innerText = `${places.length} places explored`;
+        }
+
         window.onload = () => {
-            const saved = JSON.parse(localStorage.getItem('myPlaces') || '[]');
-            saved.forEach(p => {
-                L.marker(p.latlng).addTo(map).bindPopup(`<b>${p.name}</b>`);
-                visitedCount++;
-            });
-            counterEl.innerText = `${visitedCount} places visited`;
+            places.forEach(p => renderMarker(p));
+            save();
         };
     </script>
 </body>
