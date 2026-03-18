@@ -17,13 +17,13 @@
         :root { 
             --bg: #ffffff; 
             --text: #333; 
-            --panel: #ffffff; 
+            --panel: rgba(255, 255, 255, 0.95); 
             --accent: #FF6B6B; 
         }
         body.dark-mode { 
             --bg: #121212; 
             --text: #f0f0f0; 
-            --panel: #1e1e1e; 
+            --panel: rgba(30, 30, 30, 0.95); 
             --accent: #FF8787; 
         }
 
@@ -52,60 +52,70 @@
             transform: rotate(45deg);
         }
 
-        /* GPS Pulse Animation for "Center on Me" */
+        /* GPS Pulse Animation */
         .gps-pulse {
-            width: 15px;
-            height: 15px;
-            background-color: var(--accent);
-            border: 2.5px solid white;
+            width: 14px;
+            height: 14px;
+            background-color: #007AFF;
+            border: 2px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent);
-            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 12px #007AFF;
+            animation: pulse 1.8s infinite;
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,107,107, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255,107,107, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,107,107, 0); }
+            0% { transform: scale(1); opacity: 1; }
+            70% { transform: scale(2.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 0; }
         }
 
         /* Modern Bottom Panel */
         .ui-panel {
             position: absolute; bottom: 35px; left: 15px; right: 15px;
             z-index: 1000; background: var(--panel); padding: 18px;
-            border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+            border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.2);
             display: flex; justify-content: space-between; align-items: center;
             max-width: 420px; margin: auto;
-            border: 1px solid rgba(0,0,0,0.05);
-            transition: background 0.3s;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
         .stats h3 { margin: 0; font-size: 1.1rem; letter-spacing: -0.5px; font-weight: 700; }
-        .stats p { margin: 2px 0 0; font-size: 0.85rem; color: #888; font-weight: 500; }
+        .stats p { margin: 2px 0 0; font-size: 0.85rem; color: #666; font-weight: 500; }
         
-        .controls { display: flex; gap: 8px; }
+        .controls { display: flex; gap: 10px; }
+        .btn { border: none; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .btn:active { transform: scale(0.92); }
 
-        .btn { border: none; border-radius: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
-        .btn:active { transform: scale(0.95); }
-
-        .btn-mode { background: #f0f0f0; color: #333; width: 44px; height: 44px; font-size: 1.2rem; }
+        .btn-mode { background: #eee; color: #333; width: 44px; height: 44px; font-size: 1.2rem; }
         body.dark-mode .btn-mode { background: #333; color: white; }
         
         .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.3rem; }
-        body.dark-mode .btn-gps { background: #0a84ff; }
 
         /* Popup UI */
         .popup-container { min-width: 180px; text-align: center; }
         .visit-date { font-size: 0.75rem; color: #888; margin-top: 4px; display: block; }
         .popup-img { width: 100%; border-radius: 12px; margin: 10px 0; max-height: 180px; object-fit: cover; }
-        .btn-delete { background: #FFF0F0; color: #FF3B30; font-size: 0.75rem; margin-top: 8px; width: 100%; padding: 8px; }
-        .btn-photo { background: var(--accent); color: white; font-size: 0.8rem; width: 100%; padding: 10px; margin-top: 5px; }
+        .btn-delete { background: #fdeaea; color: #FF3B30; font-size: 0.75rem; margin-top: 8px; width: 100%; padding: 8px; border-radius: 8px; font-weight: 600; }
+        .btn-photo { background: var(--accent); color: white; font-size: 0.8rem; width: 100%; padding: 10px; border-radius: 10px; margin-top: 5px; font-weight: 700; }
         
         #file-input { display: none; }
         
-        /* Fixed Search Bar Styling */
-        .leaflet-touch .geocoder-control { margin-left: 10px !important; margin-top: 50px !important; width: calc(100% - 20px) !important; max-width: 420px !important; left: 50% !important; transform: translateX(-50%) !important; position: absolute !important;}
-        .geocoder-control-input { border-radius: 20px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; padding: 12px 15px 12px 40px !important;}
+        /* Search Bar Position Fix */
+        .leaflet-touch .geocoder-control { 
+            margin-top: 55px !important; 
+            width: calc(100% - 30px) !important; 
+            max-width: 400px !important; 
+            left: 50% !important; 
+            transform: translateX(-50%) !important; 
+            position: absolute !important;
+        }
+        .geocoder-control-input { 
+            border-radius: 24px !important; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; 
+            border: none !important;
+            padding-left: 40px !important;
+        }
     </style>
 </head>
 <body class="light-mode">
@@ -137,8 +147,12 @@
         // Initialize Map
         const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-25.27, 133.77], 4);
         
-        // Map Tiles (Voyager for Light, DarkMatter for Dark)
-        const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        // NEW MAP TILES: Detailed Topographic/Community Style (Like your screenshot)
+        const lightTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19
+        });
+        
+        // Dark Mode Tiles (High detail satellite/streets)
         const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
         function updateTheme() {
@@ -156,21 +170,17 @@
             isDarkMode = !isDarkMode; 
             localStorage.setItem('dark-mode', isDarkMode); 
             updateTheme(); 
-            location.reload(); // Refresh to update marker colors via CSS
+            location.reload(); 
         }
 
-        // Search Control (Forced centering logic)
         const searchControl = L.esri.Geocoding.geosearch({
-            placeholder: 'Find adventure...',
+            placeholder: 'Explore Australia...',
             providers: [L.esri.Geocoding.arcgisOnlineProvider({ countries: ['AUS'] })]
         }).addTo(map);
 
         searchControl.on('results', (data) => { if (data.results.length > 0) createPlace(data.results[0].text, data.results[0].latlng); });
-        
-        // Tap to Pin
         map.on('click', (e) => { const n = prompt("Where are you?"); if (n) createPlace(n, e.latlng); });
 
-        // helper for formatted Date
         function getAESTDate() {
             return new Intl.DateTimeFormat('en-AU', {
                 timeZone: 'Australia/Sydney',
@@ -228,29 +238,21 @@
             marker.bindPopup(div);
         }
 
-        // GPS FUNCTION: Center on Me
         function centerOnMe() {
             map.locate({setView: false, maxZoom: 16});
-            
             map.on('locationfound', function(e) {
                 map.flyTo(e.latlng, 15);
-                
-                // Add a permanent pulisng dot for "Me"
                 if (!myLocationPulse) {
                     const myIcon = L.divIcon({
                         className: 'custom-div-icon',
                         html: `<div class='gps-pulse'></div>`,
-                        iconSize: [15, 15],
-                        iconAnchor: [7.5, 7.5]
+                        iconSize: [14, 14],
+                        iconAnchor: [7, 7]
                     });
                     myLocationPulse = L.marker(e.latlng, { icon: myIcon }).addTo(map);
                 } else {
                     myLocationPulse.setLatLng(e.latlng);
                 }
-            });
-
-            map.on('locationerror', function() {
-                alert("GPS Access Denied. Please enable location services in your iPhone settings.");
             });
         }
 
@@ -262,7 +264,7 @@
                 const index = places.findIndex(p => p.id === id);
                 places[index].img = e.target.result;
                 save();
-                location.reload(); // Refresh map to show photo
+                location.reload(); 
             };
             reader.readAsDataURL(file);
         }
