@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Oz Tracker</title>
+    <title>eXplorer</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="eXplorer">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -17,7 +18,7 @@
             --bg: #ffffff; 
             --text: #333; 
             --panel: #ffffff; 
-            --accent: #FF6B6B; /* Soft Coral accent */
+            --accent: #FF6B6B; 
         }
         body.dark-mode { 
             --bg: #121212; 
@@ -26,53 +27,85 @@
             --accent: #FF8787; 
         }
 
-        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+        body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* Custom Marker Style (Replaces Blue Pins) */
+        /* Custom Pin Styling */
         .custom-pin {
-            width: 30px;
-            height: 30px;
+            width: 24px;
+            height: 24px;
             background-color: var(--accent);
-            border: 3px solid white;
+            border: 2.5px solid white;
             border-radius: 50% 50% 50% 0;
             transform: rotate(-45deg);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .custom-pin::after {
             content: '';
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             background: white;
             border-radius: 50%;
             transform: rotate(45deg);
         }
 
-        /* UI Elements */
-        .ui-panel {
-            position: absolute; bottom: 30px; left: 15px; right: 15px;
-            z-index: 1000; background: var(--panel); padding: 15px;
-            border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            display: flex; justify-content: space-between; align-items: center;
-            max-width: 400px; margin: auto;
+        /* GPS Pulse Animation for "Center on Me" */
+        .gps-pulse {
+            width: 15px;
+            height: 15px;
+            background-color: var(--accent);
+            border: 2.5px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent);
+            animation: pulse 1.5s infinite;
         }
 
-        .btn { border: none; padding: 10px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-mode { background: #444; color: white; width: 40px; height: 40px; font-size: 1.2rem; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,107,107, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255,107,107, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,107,107, 0); }
+        }
+
+        /* Modern Bottom Panel */
+        .ui-panel {
+            position: absolute; bottom: 35px; left: 15px; right: 15px;
+            z-index: 1000; background: var(--panel); padding: 18px;
+            border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+            display: flex; justify-content: space-between; align-items: center;
+            max-width: 420px; margin: auto;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: background 0.3s;
+        }
+
+        .stats h3 { margin: 0; font-size: 1.1rem; letter-spacing: -0.5px; font-weight: 700; }
+        .stats p { margin: 2px 0 0; font-size: 0.85rem; color: #888; font-weight: 500; }
         
-        .popup-container { min-width: 180px; text-align: center; color: #333; }
-        .visit-date { font-size: 0.75rem; color: #777; margin-bottom: 8px; display: block; }
-        .popup-img { width: 100%; border-radius: 10px; margin: 10px 0; max-height: 150px; object-fit: cover; }
-        .btn-delete { background: #ff3b30; color: white; font-size: 0.7rem; margin-top: 8px; width: 100%; }
-        .btn-photo { background: var(--accent); color: white; font-size: 0.7rem; width: 100%; }
+        .controls { display: flex; gap: 8px; }
+
+        .btn { border: none; border-radius: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+        .btn:active { transform: scale(0.95); }
+
+        .btn-mode { background: #f0f0f0; color: #333; width: 44px; height: 44px; font-size: 1.2rem; }
+        body.dark-mode .btn-mode { background: #333; color: white; }
+        
+        .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.3rem; }
+        body.dark-mode .btn-gps { background: #0a84ff; }
+
+        /* Popup UI */
+        .popup-container { min-width: 180px; text-align: center; }
+        .visit-date { font-size: 0.75rem; color: #888; margin-top: 4px; display: block; }
+        .popup-img { width: 100%; border-radius: 12px; margin: 10px 0; max-height: 180px; object-fit: cover; }
+        .btn-delete { background: #FFF0F0; color: #FF3B30; font-size: 0.75rem; margin-top: 8px; width: 100%; padding: 8px; }
+        .btn-photo { background: var(--accent); color: white; font-size: 0.8rem; width: 100%; padding: 10px; margin-top: 5px; }
         
         #file-input { display: none; }
-
-        /* Search Bar Color Polish */
-        .geocoder-control-input { border-radius: 20px !important; }
+        
+        /* Fixed Search Bar Styling */
+        .leaflet-touch .geocoder-control { margin-left: 10px !important; margin-top: 50px !important; width: calc(100% - 20px) !important; max-width: 420px !important; left: 50% !important; transform: translateX(-50%) !important; position: absolute !important;}
+        .geocoder-control-input { border-radius: 20px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; padding: 12px 15px 12px 40px !important;}
     </style>
 </head>
 <body class="light-mode">
@@ -82,10 +115,13 @@
 
     <div class="ui-panel">
         <div class="stats">
-            <h3 style="margin:0; font-size: 1rem;">🇦🇺 Oz Tracker</h3>
-            <p id="counter" style="margin:2px 0 0; font-size: 0.8rem; color: #888;">0 places explored</p>
+            <h3 id="app-title">📍 eXplorer</h3>
+            <p id="counter">0 adventures logged</p>
         </div>
-        <button class="btn btn-mode" onclick="toggleDarkMode()" id="mode-btn">🌙</button>
+        <div class="controls">
+            <button class="btn btn-gps" onclick="centerOnMe()" id="gps-btn">🧭</button>
+            <button class="btn btn-mode" onclick="toggleDarkMode()" id="mode-btn">🌙</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -96,11 +132,12 @@
         let isDarkMode = localStorage.getItem('dark-mode') === 'true';
         let places = JSON.parse(localStorage.getItem('myPlaces') || '[]');
         let activeMarkers = {};
+        let myLocationPulse = null;
 
         // Initialize Map
-        const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
+        const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-25.27, 133.77], 4);
         
-        // Premium Map Tiles (Voyager for Light, DarkMatter for Dark)
+        // Map Tiles (Voyager for Light, DarkMatter for Dark)
         const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
         const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
@@ -119,18 +156,21 @@
             isDarkMode = !isDarkMode; 
             localStorage.setItem('dark-mode', isDarkMode); 
             updateTheme(); 
-            location.reload(); // Refresh to update marker colors in CSS
+            location.reload(); // Refresh to update marker colors via CSS
         }
 
-        // Search Tool
+        // Search Control (Forced centering logic)
         const searchControl = L.esri.Geocoding.geosearch({
-            placeholder: 'Find a place...',
+            placeholder: 'Find adventure...',
             providers: [L.esri.Geocoding.arcgisOnlineProvider({ countries: ['AUS'] })]
         }).addTo(map);
 
         searchControl.on('results', (data) => { if (data.results.length > 0) createPlace(data.results[0].text, data.results[0].latlng); });
-        map.on('click', (e) => { const n = prompt("What's this spot called?"); if (n) createPlace(n, e.latlng); });
+        
+        // Tap to Pin
+        map.on('click', (e) => { const n = prompt("Where are you?"); if (n) createPlace(n, e.latlng); });
 
+        // helper for formatted Date
         function getAESTDate() {
             return new Intl.DateTimeFormat('en-AU', {
                 timeZone: 'Australia/Sydney',
@@ -148,12 +188,11 @@
         }
 
         function renderMarker(place) {
-            // Create the Custom Colored Pin
             const customIcon = L.divIcon({
                 className: 'custom-div-icon',
                 html: `<div class='custom-pin'></div>`,
-                iconSize: [30, 42],
-                iconAnchor: [15, 42]
+                iconSize: [24, 34],
+                iconAnchor: [12, 34]
             });
 
             const marker = L.marker(place.latlng, { icon: customIcon }).addTo(map);
@@ -172,7 +211,7 @@
             } else {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-photo';
-                btn.innerText = '📸 Add Photo';
+                btn.innerText = '📸 Add Memory';
                 btn.onclick = () => { 
                     document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); 
                     document.getElementById('file-input').click(); 
@@ -182,11 +221,37 @@
 
             const delBtn = document.createElement('button');
             delBtn.className = 'btn btn-delete';
-            delBtn.innerText = '🗑️ Delete';
+            delBtn.innerText = 'Delete';
             delBtn.onclick = () => deletePlace(place.id);
             div.appendChild(delBtn);
 
             marker.bindPopup(div);
+        }
+
+        // GPS FUNCTION: Center on Me
+        function centerOnMe() {
+            map.locate({setView: false, maxZoom: 16});
+            
+            map.on('locationfound', function(e) {
+                map.flyTo(e.latlng, 15);
+                
+                // Add a permanent pulisng dot for "Me"
+                if (!myLocationPulse) {
+                    const myIcon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div class='gps-pulse'></div>`,
+                        iconSize: [15, 15],
+                        iconAnchor: [7.5, 7.5]
+                    });
+                    myLocationPulse = L.marker(e.latlng, { icon: myIcon }).addTo(map);
+                } else {
+                    myLocationPulse.setLatLng(e.latlng);
+                }
+            });
+
+            map.on('locationerror', function() {
+                alert("GPS Access Denied. Please enable location services in your iPhone settings.");
+            });
         }
 
         function uploadPhoto(event, id) {
@@ -197,13 +262,13 @@
                 const index = places.findIndex(p => p.id === id);
                 places[index].img = e.target.result;
                 save();
-                location.reload(); 
+                location.reload(); // Refresh map to show photo
             };
             reader.readAsDataURL(file);
         }
 
         function deletePlace(id) {
-            if (confirm("Delete this memory?")) {
+            if (confirm("Delete this adventure?")) {
                 map.removeLayer(activeMarkers[id]);
                 places = places.filter(p => p.id !== id);
                 save();
@@ -212,7 +277,7 @@
 
         function save() {
             localStorage.setItem('myPlaces', JSON.stringify(places));
-            document.getElementById('counter').innerText = `${places.length} places explored`;
+            document.getElementById('counter').innerText = `${places.length} adventures logged`;
         }
 
         window.onload = () => {
