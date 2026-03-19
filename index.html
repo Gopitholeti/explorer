@@ -7,52 +7,24 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="eXplorer">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
-        :root { 
-            --bg: #ffffff; 
-            --panel: rgba(255, 255, 255, 0.98); 
-            --accent: #FF6B6B; 
-        }
-        body.dark-mode { 
-            --bg: #121212; 
-            --panel: rgba(30, 30, 30, 0.98); 
-            --accent: #FF8787; 
-        }
-
-        body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #e0e0e0; overflow: hidden; }
+        :root { --accent: #FF6B6B; --panel: rgba(255,255,255,0.98); }
+        body { margin: 0; font-family: -apple-system, sans-serif; overflow: hidden; background: #f0f2f5; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* High-Res Custom Pin */
-        .custom-pin {
-            width: 24px; height: 24px;
-            background-color: var(--accent);
-            border: 2px solid white;
-            border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: center;
+        /* Auth Screen */
+        #auth-overlay {
+            position: fixed; inset: 0; background: #fff; z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 30px; text-align: center;
         }
-        .custom-pin::after {
-            content: ''; width: 8px; height: 8px;
-            background: white; border-radius: 50%;
-            transform: rotate(45deg);
-        }
-
-        /* GPS Pulse */
-        .gps-pulse {
-            width: 14px; height: 14px; background: #007AFF;
-            border: 2px solid white; border-radius: 50%;
-            box-shadow: 0 0 10px #007AFF; animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 70% { transform: scale(2.5); opacity: 0; } 100% { opacity: 0; } }
-
-        /* UI Panel */
+        input { padding: 15px; border-radius: 12px; border: 1px solid #ddd; width: 85%; max-width: 320px; margin: 10px 0; font-size: 16px; outline: none; }
+        
         .ui-panel {
             position: absolute; bottom: 35px; left: 15px; right: 15px;
             z-index: 1000; background: var(--panel); padding: 18px;
@@ -61,149 +33,129 @@
             max-width: 420px; margin: auto; backdrop-filter: blur(10px);
         }
 
-        .stats h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #111; }
-        .stats p { margin: 2px 0 0; font-size: 0.8rem; color: #777; }
+        .custom-pin {
+            width: 24px; height: 24px; background: var(--accent);
+            border: 2px solid white; border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg); box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
         
-        .controls { display: flex; gap: 10px; }
-        .btn { border: none; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: 0.2s; }
-        .btn:active { transform: scale(0.9); }
-        .btn-mode { background: #f0f0f0; font-size: 1.2rem; }
-        .btn-gps { background: #007AFF; color: white; font-size: 1.3rem; }
+        .btn { border: none; border-radius: 14px; padding: 12px; cursor: pointer; font-weight: 700; transition: 0.2s; }
+        .btn-main { background: var(--accent); color: white; width: 100%; max-width: 320px; font-size: 1rem; }
+        .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+        .btn-logout { background: #eee; color: #666; font-size: 0.8rem; padding: 8px 12px; }
 
-        /* Popup Box */
-        .popup-container { min-width: 180px; text-align: center; }
-        .popup-img { width: 100%; border-radius: 12px; margin: 10px 0; max-height: 180px; object-fit: cover; border: 1px solid #eee; }
-        .btn-delete { background: #fff1f0; color: #ff3b30; width: 100%; padding: 8px; border-radius: 8px; border: none; font-weight: 600; margin-top: 10px; }
-        .btn-photo { background: var(--accent); color: white; width: 100%; padding: 10px; border-radius: 10px; border: none; font-weight: 700; }
-        
-        #file-input { display: none; }
-        
-        /* Search Bar Sharpness Fix */
-        .leaflet-touch .geocoder-control { margin-top: 55px !important; width: calc(100% - 30px) !important; max-width: 400px !important; left: 50% !important; transform: translateX(-50%) !important; position: absolute !important;}
-        .geocoder-control-input { border-radius: 24px !important; box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; border: none !important; padding-left: 42px !important; height: 46px !important; font-size: 16px !important;}
+        .popup-container { padding: 5px; text-align: center; }
     </style>
 </head>
-<body class="light-mode">
+<body>
+
+    <div id="auth-overlay">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0;">📍 eXplorer</h1>
+        <p style="color: #666; margin-bottom: 20px;">Your Australian Journey, Synced.</p>
+        <input type="email" id="email" placeholder="Enter your email">
+        <button class="btn btn-main" onclick="handleLogin()">Get Magic Link</button>
+        <p style="font-size: 0.8rem; color: #999; margin-top: 20px;">We'll email you a login link.</p>
+    </div>
 
     <div id="map"></div>
-    <input type="file" id="file-input" accept="image/*">
 
-    <div class="ui-panel">
-        <div class="stats">
-            <h3>📍 eXplorer</h3>
-            <p id="counter">0 adventures logged</p>
+    <div class="ui-panel" id="main-ui" style="display:none;">
+        <div>
+            <h3 style="margin:0; letter-spacing: -0.5px;">eXplorer</h3>
+            <p id="counter" style="margin:0; font-size:0.8rem; color:#888;">Updating...</p>
         </div>
-        <div class="controls">
+        <div style="display:flex; gap:10px; align-items: center;">
             <button class="btn btn-gps" onclick="centerOnMe()">🧭</button>
-            <button class="btn btn-mode" onclick="toggleDarkMode()" id="mode-btn">🌙</button>
+            <button class="btn btn-logout" onclick="logout()">Logout</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
-    <script src="https://unpkg.com/esri-leaflet-geocoder@3.1.4/dist/esri-leaflet-geocoder.js"></script>
 
     <script>
-        let isDarkMode = localStorage.getItem('dark-mode') === 'true';
-        let places = JSON.parse(localStorage.getItem('myPlaces') || '[]');
-        let activeMarkers = {};
-        let myLocationPulse = null;
+        // --- CONFIG ---
+        const SUPABASE_URL = 'https://cluzafvesdirdddttfnd.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsdXphZnZlc2RpcmRkZHR0Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NzQ1NzAsImV4cCI6MjA4OTQ1MDU3MH0.pVEyx2Jq-j2MZAncrauPs58EowcbvE7ueFCbBDWEOHY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // CRITICAL FIX: Retina Support
-        const map = L.map('map', { 
-            zoomControl: false, 
-            attributionControl: false,
-            tap: false // Improves touch responsiveness on iOS
-        }).setView([-25.27, 133.77], 4);
-        
-        // High-DPI Tiles (Requested at @2x resolution for Retina screens)
-        const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            detectRetina: true,
-            maxZoom: 20
-        }).addTo(map);
-        
-        const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            detectRetina: true,
-            maxZoom: 20
+        let user = null;
+        let markers = L.layerGroup();
+
+        // --- MAP SETUP ---
+        const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { detectRetina: true }).addTo(map);
+        markers.addTo(map);
+
+        // --- AUTH ---
+        async function handleLogin() {
+            const email = document.getElementById('email').value;
+            if(!email) return alert("Please enter an email!");
+            const { error } = await supabase.auth.signInWithOtp({ email });
+            if (error) alert(error.message);
+            else alert("Success! Check your inbox for the login link.");
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            location.reload();
+        }
+
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                user = session.user;
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('main-ui').style.display = 'flex';
+                loadAdventures();
+            }
         });
 
-        function updateTheme() {
-            if (isDarkMode) { map.removeLayer(lightTiles); darkTiles.addTo(map); document.body.className='dark-mode'; document.getElementById('mode-btn').innerText='☀️'; }
-            else { map.removeLayer(darkTiles); lightTiles.addTo(map); document.body.className='light-mode'; document.getElementById('mode-btn').innerText='🌙'; }
+        // --- DATA OPS ---
+        async function loadAdventures() {
+            markers.clearLayers();
+            const { data, error } = await supabase
+                .from('adventures')
+                .select('*')
+                .eq('user_id', user.id);
+            
+            if (data) {
+                data.forEach(p => renderMarker(p));
+                updateCounter(data.length);
+            }
         }
-        updateTheme();
 
-        function toggleDarkMode() { isDarkMode = !isDarkMode; localStorage.setItem('dark-mode', isDarkMode); updateTheme(); }
+        map.on('click', async (e) => {
+            if (!user) return;
+            const name = prompt("What did you find here?");
+            if (!name) return;
 
-        const searchControl = L.esri.Geocoding.geosearch({
-            placeholder: 'Search Australia...',
-            providers: [L.esri.Geocoding.arcgisOnlineProvider({ countries: ['AUS'] })]
-        }).addTo(map);
+            const newEntry = {
+                name: name,
+                latlng: { lat: e.latlng.lat, lng: e.latlng.lng },
+                user_id: user.id
+            };
 
-        searchControl.on('results', (data) => { if (data.results.length > 0) createPlace(data.results[0].text, data.results[0].latlng); });
-        map.on('click', (e) => { const n = prompt("Where are you?"); if (n) createPlace(n, e.latlng); });
-
-        function createPlace(name, latlng) {
-            const id = Date.now().toString();
-            const dateStr = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
-            const newPlace = { id, name, latlng, img: null, date: dateStr };
-            places.push(newPlace);
-            renderMarker(newPlace);
-            save();
-        }
+            const { data, error } = await supabase.from('adventures').insert([newEntry]).select();
+            if (error) {
+                console.error(error);
+                alert("Error saving! Check your RLS policies.");
+            } else {
+                loadAdventures(); 
+            }
+        });
 
         function renderMarker(place) {
-            const customIcon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div class='custom-pin'></div>`,
-                iconSize: [24, 34], iconAnchor: [12, 34]
-            });
-            const marker = L.marker(place.latlng, { icon: customIcon }).addTo(map);
-            activeMarkers[place.id] = marker;
-            const div = document.createElement('div');
-            div.className = 'popup-container';
-            div.innerHTML = `<strong>${place.name}</strong><br><small style="color:#999">${place.date}</small>`;
-            if (place.img) {
-                const img = document.createElement('img'); img.src = place.img; img.className = 'popup-img'; div.appendChild(img);
-            } else {
-                const btn = document.createElement('button'); btn.className = 'btn-photo'; btn.innerText = '📸 Add Memory';
-                btn.onclick = () => { document.getElementById('file-input').onchange = (e) => uploadPhoto(e, place.id); document.getElementById('file-input').click(); };
-                div.appendChild(btn);
-            }
-            const delBtn = document.createElement('button'); delBtn.className = 'btn-delete'; delBtn.innerText = 'Delete';
-            delBtn.onclick = () => deletePlace(place.id); div.appendChild(delBtn);
-            marker.bindPopup(div);
+            const icon = L.divIcon({ className: 'custom-pin', iconSize: [24, 24], iconAnchor: [12, 24] });
+            const m = L.marker([place.latlng.lat, place.latlng.lng], { icon }).addTo(markers);
+            m.bindPopup(`<div class="popup-container"><strong>${place.name}</strong><br><small>${new Date(place.created_at).toLocaleDateString('en-AU')}</small></div>`);
+        }
+
+        function updateCounter(count) {
+            document.getElementById('counter').innerText = `${count} adventures synced`;
         }
 
         function centerOnMe() {
-            map.locate({setView: true, maxZoom: 15});
-            map.on('locationfound', function(e) {
-                if (!myLocationPulse) {
-                    const myIcon = L.divIcon({ className: 'custom-div-icon', html: `<div class='gps-pulse'></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
-                    myLocationPulse = L.marker(e.latlng, { icon: myIcon }).addTo(map);
-                } else { myLocationPulse.setLatLng(e.latlng); }
-            });
+            map.locate({setView: true, maxZoom: 14});
         }
-
-        function uploadPhoto(event, id) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const index = places.findIndex(p => p.id === id);
-                places[index].img = e.target.result;
-                save(); location.reload(); 
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function deletePlace(id) {
-            if (confirm("Delete adventure?")) { map.removeLayer(activeMarkers[id]); places = places.filter(p => p.id !== id); save(); }
-        }
-
-        function save() { localStorage.setItem('myPlaces', JSON.stringify(places)); document.getElementById('counter').innerText = `${places.length} adventures logged`; }
-
-        window.onload = () => { places.forEach(p => renderMarker(p)); save(); };
     </script>
 </body>
 </html>
