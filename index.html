@@ -12,27 +12,38 @@
         :root { --accent: #FF6B6B; --panel: rgba(255,255,255,0.98); --text: #333; }
         body { margin: 0; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; background: #f0f2f5; color: var(--text); }
         #map { height: 100vh; width: 100%; z-index: 1; }
+        
+        /* Auth Overlay */
         #auth-overlay { position: fixed; inset: 0; background: #fff; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
-        input { padding: 16px; border-radius: 14px; border: 1px solid #ddd; width: 85%; max-width: 320px; margin: 10px 0; font-size: 16px; outline: none; }
+        .auth-box { width: 100%; max-width: 320px; }
+        input { padding: 16px; border-radius: 14px; border: 1px solid #ddd; width: 100%; margin: 8px 0; font-size: 16px; box-sizing: border-box; outline: none; }
+        
+        /* UI Panel */
         .ui-panel { position: absolute; bottom: 35px; left: 15px; right: 15px; z-index: 1000; background: var(--panel); padding: 18px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; max-width: 420px; margin: auto; backdrop-filter: blur(10px); }
         .custom-pin { width: 24px; height: 24px; background: var(--accent); border: 2px solid white; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
-        .btn { border: none; border-radius: 14px; padding: 12px; cursor: pointer; font-weight: 700; transition: 0.2s; }
-        .btn-main { background: var(--accent); color: white; width: 100%; max-width: 320px; }
-        .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
-        .btn-delete { background: #fff1f0; color: #ff3b30; width: 100%; margin-top: 10px; font-size: 0.7rem; }
-        .btn-photo { background: #f0f0f0; color: #333; width: 100%; margin-top: 5px; font-size: 0.7rem; }
+        
+        .btn { border: none; border-radius: 14px; padding: 14px; cursor: pointer; font-weight: 700; transition: 0.2s; font-size: 1rem; }
+        .btn-main { background: var(--accent); color: white; width: 100%; margin-top: 10px; }
+        .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; padding: 0; }
+        .btn-alt { background: none; color: #007AFF; font-size: 0.85rem; margin-top: 15px; text-decoration: underline; }
+        
         .popup-container { padding: 5px; text-align: center; min-width: 150px; }
         .popup-img { width: 100%; border-radius: 10px; margin-top: 8px; max-height: 150px; object-fit: cover; display: block;}
-        .visit-date { font-size: 0.7rem; color: #999; display: block; margin-top: 2px; }
     </style>
 </head>
 <body>
 
     <div id="auth-overlay">
-        <h1>📍 eXplorer</h1>
-        <p>Your Australian Journey, Synced.</p>
-        <input type="email" id="email" placeholder="Enter your email">
-        <button class="btn btn-main" onclick="handleLogin()">Get Magic Link</button>
+        <div class="auth-box">
+            <h1 style="font-size: 2.5rem; margin-bottom: 5px;">📍 eXplorer</h1>
+            <p id="auth-desc" style="color: #666; margin-bottom: 20px;">Sign in with your password</p>
+            
+            <input type="email" id="email" placeholder="Email address">
+            <input type="password" id="password" placeholder="Password">
+            
+            <button class="btn btn-main" id="login-btn" onclick="handleAuth()">Login</button>
+            <button class="btn btn-alt" id="toggle-btn" onclick="toggleAuthMode()">Use Magic Link instead</button>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -43,9 +54,9 @@
             <h3 style="margin:0">eXplorer</h3>
             <p id="counter" style="margin:0; font-size:0.8rem; color:#888;">Syncing...</p>
         </div>
-        <div style="display:flex; gap:12px;">
+        <div style="display:flex; gap:12px; align-items: center;">
             <button class="btn btn-gps" onclick="centerOnMe()">🧭</button>
-            <button class="btn" style="font-size:0.7rem" onclick="handleLogout()">Logout</button>
+            <button class="btn" style="font-size:0.75rem; color:#666; background:#eee;" onclick="sb.auth.signOut().then(()=>location.reload())">Logout</button>
         </div>
     </div>
 
@@ -57,27 +68,37 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsdXphZnZlc2RpcmRkZHR0Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NzQ1NzAsImV4cCI6MjA4OTQ1MDU3MH0.pVEyx2Jq-j2MZAncrauPs58EowcbvE7ueFCbBDWEOHY';
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
+        let isPasswordMode = true;
         let currentUser = null;
         let markerGroup = L.layerGroup();
         const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
+        
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { detectRetina: true }).addTo(map);
         markerGroup.addTo(map);
 
-        async function handleLogin() {
-            const email = document.getElementById('email').value;
-            const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
-            if (error) alert("Login Error: " + error.message); 
-            else alert("Check your email!");
+        function toggleAuthMode() {
+            isPasswordMode = !isPasswordMode;
+            document.getElementById('password').style.display = isPasswordMode ? 'block' : 'none';
+            document.getElementById('auth-desc').innerText = isPasswordMode ? 'Sign in with your password' : 'We will email you a login link';
+            document.getElementById('login-btn').innerText = isPasswordMode ? 'Login' : 'Send Magic Link';
+            document.getElementById('toggle-btn').innerText = isPasswordMode ? 'Use Magic Link instead' : 'Use Password instead';
         }
 
-        async function handleLogout() {
-            await sb.auth.signOut();
-            localStorage.clear(); // Clear local photos on logout
-            location.reload();
+        async function handleAuth() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (isPasswordMode) {
+                const { error } = await sb.auth.signInWithPassword({ email, password });
+                if (error) alert("Login Error: " + error.message);
+            } else {
+                const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+                if (error) alert("Magic Link Error: " + error.message);
+                else alert("Check your email!");
+            }
         }
 
         sb.auth.onAuthStateChange((event, session) => {
-            console.log("Auth Event:", event);
             if (session) {
                 currentUser = session.user;
                 document.getElementById('auth-overlay').style.display = 'none';
@@ -88,22 +109,12 @@
 
         async function fetchData() {
             if (!currentUser) return;
-            console.log("Fetching data for user:", currentUser.id);
-            
             const { data, error } = await sb.from('adventures').select('*').eq('user_id', currentUser.id);
+            if (error) { document.getElementById('counter').innerText = "Policy Error!"; return; }
             
-            if (error) {
-                console.error("Fetch Error:", error.message);
-                document.getElementById('counter').innerText = "Sync Error (Check Policies)";
-                return;
-            }
-
-            console.log("Pins found:", data.length);
             markerGroup.clearLayers();
             if (data) {
-                data.forEach(item => {
-                    if (item.latlng && item.latlng.lat) renderPin(item);
-                });
+                data.forEach(item => renderPin(item));
                 document.getElementById('counter').innerText = `${data.length} adventures synced`;
             }
         }
@@ -112,13 +123,7 @@
             if (!currentUser) return;
             const name = prompt("Name this spot:");
             if (!name) return;
-            
-            const { data, error } = await sb.from('adventures').insert([{ 
-                name, 
-                latlng: { lat: e.latlng.lat, lng: e.latlng.lng }, 
-                user_id: currentUser.id 
-            }]).select();
-            
+            const { error } = await sb.from('adventures').insert([{ name, latlng: e.latlng, user_id: currentUser.id }]);
             if (error) alert("Save Error: " + error.message);
             else fetchData();
         });
@@ -126,40 +131,32 @@
         function renderPin(item) {
             const icon = L.divIcon({ className: 'custom-pin', iconSize: [24, 24], iconAnchor: [12, 24] });
             const m = L.marker([item.latlng.lat, item.latlng.lng], { icon }).addTo(markerGroup);
-            
             const localPhoto = localStorage.getItem('photo_' + item.id);
+            
             let content = `<div class="popup-container">
                 <strong>${item.name}</strong>
-                <span class="visit-date">${new Date(item.created_at).toLocaleDateString('en-AU')}</span>`;
-            
+                <span style="font-size:0.7rem; color:#999; display:block;">${new Date(item.created_at).toLocaleDateString('en-AU')}</span>`;
             if (localPhoto) content += `<img src="${localPhoto}" class="popup-img">`;
             else content += `<button class="btn btn-photo" onclick="triggerUpload(${item.id})">📸 Add Local Photo</button>`;
-
-            content += `<button class="btn btn-delete" onclick="deletePin(${item.id})">🗑️ Delete</button></div>`;
+            content += `<button class="btn btn-delete" style="color:red; background:none; font-size:0.7rem; margin-top:10px;" onclick="deletePin(${item.id})">🗑️ Delete</button></div>`;
             m.bindPopup(content);
         }
 
         let pendingId = null;
         function triggerUpload(id) { pendingId = id; document.getElementById('photo-input').click(); }
-
         document.getElementById('photo-input').onchange = (e) => {
             const file = e.target.files[0];
             if (!file || !pendingId) return;
             const reader = new FileReader();
-            reader.onload = (event) => {
-                localStorage.setItem('photo_' + pendingId, event.target.result);
-                fetchData();
-            };
+            reader.onload = (event) => { localStorage.setItem('photo_' + pendingId, event.target.result); fetchData(); };
             reader.readAsDataURL(file);
         };
 
         async function deletePin(id) {
             if (confirm("Remove permanently?")) {
-                const { error } = await sb.from('adventures').delete().eq('id', id);
-                if (!error) {
-                    localStorage.removeItem('photo_' + id);
-                    fetchData();
-                }
+                await sb.from('adventures').delete().eq('id', id);
+                localStorage.removeItem('photo_' + id);
+                fetchData();
             }
         }
 
