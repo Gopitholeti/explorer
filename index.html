@@ -4,45 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>eXplorer</title>
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <style>
         :root { --accent: #FF6B6B; --panel: rgba(255,255,255,0.98); --text: #333; }
         body { margin: 0; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; background: #f0f2f5; color: var(--text); }
         #map { height: 100vh; width: 100%; z-index: 1; }
-        
-        #auth-overlay {
-            position: fixed; inset: 0; background: #fff; z-index: 2000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 30px; text-align: center;
-        }
+        #auth-overlay { position: fixed; inset: 0; background: #fff; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
         input { padding: 16px; border-radius: 14px; border: 1px solid #ddd; width: 85%; max-width: 320px; margin: 10px 0; font-size: 16px; outline: none; }
-        
-        .ui-panel {
-            position: absolute; bottom: 35px; left: 15px; right: 15px;
-            z-index: 1000; background: var(--panel); padding: 18px;
-            border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-            display: flex; justify-content: space-between; align-items: center;
-            max-width: 420px; margin: auto; backdrop-filter: blur(10px);
-        }
-
-        .custom-pin {
-            width: 24px; height: 24px; background: var(--accent);
-            border: 2px solid white; border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg); box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-        }
-        
+        .ui-panel { position: absolute; bottom: 35px; left: 15px; right: 15px; z-index: 1000; background: var(--panel); padding: 18px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; max-width: 420px; margin: auto; backdrop-filter: blur(10px); }
+        .custom-pin { width: 24px; height: 24px; background: var(--accent); border: 2px solid white; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
         .btn { border: none; border-radius: 14px; padding: 12px; cursor: pointer; font-weight: 700; transition: 0.2s; }
         .btn-main { background: var(--accent); color: white; width: 100%; max-width: 320px; }
         .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
         .btn-delete { background: #fff1f0; color: #ff3b30; width: 100%; margin-top: 10px; font-size: 0.7rem; }
         .btn-photo { background: #f0f0f0; color: #333; width: 100%; margin-top: 5px; font-size: 0.7rem; }
-        
         .popup-container { padding: 5px; text-align: center; min-width: 150px; }
         .popup-img { width: 100%; border-radius: 10px; margin-top: 8px; max-height: 150px; object-fit: cover; display: block;}
         .visit-date { font-size: 0.7rem; color: #999; display: block; margin-top: 2px; }
@@ -67,7 +45,7 @@
         </div>
         <div style="display:flex; gap:12px;">
             <button class="btn btn-gps" onclick="centerOnMe()">🧭</button>
-            <button class="btn" style="font-size:0.7rem" onclick="sb.auth.signOut().then(()=>location.reload())">Logout</button>
+            <button class="btn" style="font-size:0.7rem" onclick="handleLogout()">Logout</button>
         </div>
     </div>
 
@@ -82,17 +60,24 @@
         let currentUser = null;
         let markerGroup = L.layerGroup();
         const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
-        
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { detectRetina: true }).addTo(map);
         markerGroup.addTo(map);
 
         async function handleLogin() {
             const email = document.getElementById('email').value;
             const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
-            if (error) alert(error.message); else alert("Check your email!");
+            if (error) alert("Login Error: " + error.message); 
+            else alert("Check your email!");
+        }
+
+        async function handleLogout() {
+            await sb.auth.signOut();
+            localStorage.clear(); // Clear local photos on logout
+            location.reload();
         }
 
         sb.auth.onAuthStateChange((event, session) => {
+            console.log("Auth Event:", event);
             if (session) {
                 currentUser = session.user;
                 document.getElementById('auth-overlay').style.display = 'none';
@@ -103,11 +88,23 @@
 
         async function fetchData() {
             if (!currentUser) return;
+            console.log("Fetching data for user:", currentUser.id);
+            
+            const { data, error } = await sb.from('adventures').select('*').eq('user_id', currentUser.id);
+            
+            if (error) {
+                console.error("Fetch Error:", error.message);
+                document.getElementById('counter').innerText = "Sync Error (Check Policies)";
+                return;
+            }
+
+            console.log("Pins found:", data.length);
             markerGroup.clearLayers();
-            const { data } = await sb.from('adventures').select('*').eq('user_id', currentUser.id);
             if (data) {
-                data.forEach(item => renderPin(item));
-                document.getElementById('counter').innerText = `${data.length} adventures logged`;
+                data.forEach(item => {
+                    if (item.latlng && item.latlng.lat) renderPin(item);
+                });
+                document.getElementById('counter').innerText = `${data.length} adventures synced`;
             }
         }
 
@@ -115,57 +112,54 @@
             if (!currentUser) return;
             const name = prompt("Name this spot:");
             if (!name) return;
-            const { data } = await sb.from('adventures').insert([{ name, latlng: e.latlng, user_id: currentUser.id }]).select();
-            if (data) fetchData();
+            
+            const { data, error } = await sb.from('adventures').insert([{ 
+                name, 
+                latlng: { lat: e.latlng.lat, lng: e.latlng.lng }, 
+                user_id: currentUser.id 
+            }]).select();
+            
+            if (error) alert("Save Error: " + error.message);
+            else fetchData();
         });
 
         function renderPin(item) {
             const icon = L.divIcon({ className: 'custom-pin', iconSize: [24, 24], iconAnchor: [12, 24] });
             const m = L.marker([item.latlng.lat, item.latlng.lng], { icon }).addTo(markerGroup);
             
-            // Check LocalStorage for photo
             const localPhoto = localStorage.getItem('photo_' + item.id);
-            
             let content = `<div class="popup-container">
                 <strong>${item.name}</strong>
                 <span class="visit-date">${new Date(item.created_at).toLocaleDateString('en-AU')}</span>`;
             
-            if (localPhoto) {
-                content += `<img src="${localPhoto}" class="popup-img">`;
-            } else {
-                content += `<button class="btn btn-photo" onclick="triggerUpload(${item.id})">📸 Add Local Photo</button>`;
-            }
+            if (localPhoto) content += `<img src="${localPhoto}" class="popup-img">`;
+            else content += `<button class="btn btn-photo" onclick="triggerUpload(${item.id})">📸 Add Local Photo</button>`;
 
-            content += `<button class="btn btn-delete" onclick="deletePin(${item.id})">🗑️ Delete Pin</button></div>`;
+            content += `<button class="btn btn-delete" onclick="deletePin(${item.id})">🗑️ Delete</button></div>`;
             m.bindPopup(content);
         }
 
-        // LOCAL PHOTO LOGIC (No Supabase Storage)
         let pendingId = null;
-        function triggerUpload(id) {
-            pendingId = id;
-            document.getElementById('photo-input').click();
-        }
+        function triggerUpload(id) { pendingId = id; document.getElementById('photo-input').click(); }
 
         document.getElementById('photo-input').onchange = (e) => {
             const file = e.target.files[0];
             if (!file || !pendingId) return;
-
             const reader = new FileReader();
             reader.onload = (event) => {
-                // Save to device local storage
                 localStorage.setItem('photo_' + pendingId, event.target.result);
-                fetchData(); // Refresh UI
+                fetchData();
             };
             reader.readAsDataURL(file);
         };
 
-        // DELETE LOGIC
         async function deletePin(id) {
-            if (confirm("Remove this adventure permanently?")) {
-                await sb.from('adventures').delete().eq('id', id);
-                localStorage.removeItem('photo_' + id); // Cleanup local photo
-                fetchData();
+            if (confirm("Remove permanently?")) {
+                const { error } = await sb.from('adventures').delete().eq('id', id);
+                if (!error) {
+                    localStorage.removeItem('photo_' + id);
+                    fetchData();
+                }
             }
         }
 
