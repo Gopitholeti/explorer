@@ -4,119 +4,204 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>eXplorer</title>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
     <style>
         :root { --accent: #FF6B6B; --panel: rgba(255,255,255,0.98); --text: #333; }
-        body { margin: 0; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; background: #f0f2f5; color: var(--text); }
+        body { margin: 0; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; background: #000; color: var(--text); }
         #map { height: 100vh; width: 100%; z-index: 1; }
+
+        /* Auth Screen (White Overlay) */
+        #auth-overlay { position: fixed; inset: 0; background: #fff; z-index: 4000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
+        #auth-overlay h1 { font-size: 2.8rem; margin: 0; letter-spacing: -1px; }
+        #auth-overlay p { color: #666; margin-bottom: 25px; font-weight: 500; }
         
-        /* Auth Overlay */
-        #auth-overlay { position: fixed; inset: 0; background: #fff; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
-        .auth-box { width: 100%; max-width: 320px; }
-        input { padding: 16px; border-radius: 14px; border: 1px solid #ddd; width: 100%; margin: 8px 0; font-size: 16px; box-sizing: border-box; outline: none; }
+        input { padding: 16px; border-radius: 14px; border: 1px solid #ddd; width: 100%; max-width: 320px; margin: 8px 0; font-size: 16px; outline: none; box-sizing: border-box; }
         
-        /* UI Panel */
-        .ui-panel { position: absolute; bottom: 35px; left: 15px; right: 15px; z-index: 1000; background: var(--panel); padding: 18px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; max-width: 420px; margin: auto; backdrop-filter: blur(10px); }
-        .custom-pin { width: 24px; height: 24px; background: var(--accent); border: 2px solid white; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+        /* Top Navigation (Menu only) */
+        .top-nav { position: absolute; top: 55px; right: 15px; z-index: 2000; }
         
-        .btn { border: none; border-radius: 14px; padding: 14px; cursor: pointer; font-weight: 700; transition: 0.2s; font-size: 1rem; }
-        .btn-main { background: var(--accent); color: white; width: 100%; margin-top: 10px; }
-        .btn-gps { background: #007AFF; color: white; width: 44px; height: 44px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; padding: 0; }
-        .btn-alt { background: none; color: #007AFF; font-size: 0.85rem; margin-top: 15px; text-decoration: underline; }
+        .btn-circle { background: var(--panel); border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
         
+        /* Drodown Menu */
+        .dropdown { position: absolute; top: 55px; right: 0; background: var(--panel); border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); display: none; min-width: 220px; overflow: hidden; padding: 10px 0; }
+        .user-info { padding: 12px 20px; border-bottom: 1px solid #eee; margin-bottom: 5px; }
+        .user-info span { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .user-info div { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; }
+        .dropdown button { width: 100%; padding: 12px 20px; border: none; background: none; text-align: left; font-size: 0.95rem; cursor: pointer; color: #ff3b30; font-weight: 600; }
+
+        /* Bottom Command Center (Unified Controls) */
+        .command-center { position: absolute; bottom: 30px; left: 15px; right: 15px; z-index: 2000; display: flex; flex-direction: column; gap: 12px; max-width: 500px; margin: 0 auto; }
+        .search-row { display: flex; gap: 10px; align-items: center; }
+        #search-container { flex-grow: 1; }
+
+        /* Status & Action Banner */
+        .banner-row { background: var(--panel); padding: 10px 15px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.05); }
+        .stats-group { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; }
+        .divider { width: 1px; height: 14px; background: #ddd; }
+
+        .actions-group { display: flex; gap: 8px; }
+        .btn-action { background: #f0f0f0; border: none; width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-gps { background: #007AFF; color: white; box-shadow: 0 4px 10px rgba(0,122,255,0.3); }
+
+        /* Map Pins & Popups */
+        .custom-pin { display: block; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
         .popup-container { padding: 5px; text-align: center; min-width: 150px; }
         .popup-img { width: 100%; border-radius: 10px; margin-top: 8px; max-height: 150px; object-fit: cover; display: block;}
+
+        /* Override Leaflet Search styling */
+        .leaflet-control-geocoder { border-radius: 16px !important; border: none !important; box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important; width: 100% !important; margin: 0 !important; }
+        .leaflet-control-geocoder-form input { border-radius: 16px !important; padding: 14px !important; font-size: 16px !important; background: white !important; }
     </style>
 </head>
 <body>
 
     <div id="auth-overlay">
-        <div class="auth-box">
-            <h1 style="font-size: 2.5rem; margin-bottom: 5px;">📍 eXplorer</h1>
-            <p id="auth-desc" style="color: #666; margin-bottom: 20px;">Sign in with your password</p>
-            
-            <input type="email" id="email" placeholder="Email address">
-            <input type="password" id="password" placeholder="Password">
-            
-            <button class="btn btn-main" id="login-btn" onclick="handleAuth()">Login</button>
-            <button class="btn btn-alt" id="toggle-btn" onclick="toggleAuthMode()">Use Magic Link instead</button>
+        <h1>📍 eXplorer</h1>
+        <p>Syncing your RAM 1500 Australian Journey.</p>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button style="background:var(--accent); color:white; border:none; border-radius:14px; padding:16px; width:100%; max-width:320px; font-weight:700; margin-top:10px;" onclick="handleAuth()">Login</button>
+    </div>
+
+    <div class="top-nav" id="top-nav" style="display:none;">
+        <div class="menu-container">
+            <button class="btn-circle" onclick="toggleMenu()">⋮</button>
+            <div class="dropdown" id="menu-dropdown">
+                <div class="user-info">
+                    <span>Account</span>
+                    <div id="user-email-display">suzukigixxer...</div>
+                </div>
+                <button onclick="sb.auth.signOut().then(()=>location.reload())">Logout</button>
+            </div>
         </div>
     </div>
 
     <div id="map"></div>
     <input type="file" id="photo-input" style="display:none" accept="image/*">
 
-    <div class="ui-panel" id="main-ui" style="display:none;">
-        <div class="stats">
-            <h3 style="margin:0">eXplorer</h3>
-            <p id="counter" style="margin:0; font-size:0.8rem; color:#888;">Syncing...</p>
-        </div>
-        <div style="display:flex; gap:12px; align-items: center;">
-            <button class="btn btn-gps" onclick="centerOnMe()">🧭</button>
-            <button class="btn" style="font-size:0.75rem; color:#666; background:#eee;" onclick="sb.auth.signOut().then(()=>location.reload())">Logout</button>
+    <div class="command-center" id="command-ui" style="display:none;">
+        <div class="search-row"><div id="search-container"></div></div>
+        
+        <div class="banner-row">
+            <div class="stats-group">
+                <span id="counter">0 stops</span>
+                <div class="divider"></div>
+                <span id="distance" style="color:#666">0 km</span>
+            </div>
+            
+            <div class="actions-group">
+                <button class="btn-action" id="layer-toggle" onclick="toggleLayer()">🛰️</button>
+                <button class="btn-action btn-gps" onclick="centerOnMe()">🧭</button>
+            </div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
         const SB_URL = 'https://cluzafvesdirdddttfnd.supabase.co';
+        // The SB_KEY and URL we validated together
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsdXphZnZlc2RpcmRkZHR0Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NzQ1NzAsImV4cCI6MjA4OTQ1MDU3MH0.pVEyx2Jq-j2MZAncrauPs58EowcbvE7ueFCbBDWEOHY';
+        
+        // Initialize Supabase Client
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        let isPasswordMode = true;
+        // Map State
         let currentUser = null;
+        let isSatellite = false;
         let markerGroup = L.layerGroup();
         const map = L.map('map', { zoomControl: false }).setView([-25.27, 133.77], 4);
         
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { detectRetina: true }).addTo(map);
+        // Map Layers
+        const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { detectRetina: true });
+        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
+
+        streetLayer.addTo(map); // Default View
         markerGroup.addTo(map);
 
-        function toggleAuthMode() {
-            isPasswordMode = !isPasswordMode;
-            document.getElementById('password').style.display = isPasswordMode ? 'block' : 'none';
-            document.getElementById('auth-desc').innerText = isPasswordMode ? 'Sign in with your password' : 'We will email you a login link';
-            document.getElementById('login-btn').innerText = isPasswordMode ? 'Login' : 'Send Magic Link';
-            document.getElementById('toggle-btn').innerText = isPasswordMode ? 'Use Magic Link instead' : 'Use Password instead';
+        // --- DEFINE RAM 1500 ICON ---
+        // Adjust these numbers based on your actual photo!
+        const ramIcon = L.icon({
+            iconUrl: 'ram1500.png', 
+            iconSize: [48, 24],    // [width, height] in pixels
+            iconAnchor: [24, 12],   // Always half of the numbers above
+            popupAnchor: [0, -12], 
+            className: 'custom-pin'
+        });
+
+        // --- Layer & Search Controls ---
+        function toggleLayer() {
+            const btn = document.getElementById('layer-toggle');
+            if (isSatellite) {
+                map.removeLayer(satLayer); streetLayer.addTo(map);
+                btn.innerText = '🛰️'; isSatellite = false;
+            } else {
+                map.removeLayer(streetLayer); satLayer.addTo(map);
+                btn.innerText = '🗺️'; isSatellite = true;
+            }
         }
 
+        const geocoder = L.Control.geocoder({ defaultMarkGeocode: false })
+            .on('markgeocode', function(e) { map.fitBounds(e.geocode.bbox); })
+            .addTo(map);
+        document.getElementById('search-container').appendChild(geocoder.onAdd(map));
+
+        // --- Authentication ---
         async function handleAuth() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-
-            if (isPasswordMode) {
-                const { error } = await sb.auth.signInWithPassword({ email, password });
-                if (error) alert("Login Error: " + error.message);
-            } else {
-                const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
-                if (error) alert("Magic Link Error: " + error.message);
-                else alert("Check your email!");
-            }
+            // No RLS is active, this is strictly for unique session IDs
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) alert(error.message);
         }
 
         sb.auth.onAuthStateChange((event, session) => {
             if (session) {
                 currentUser = session.user;
                 document.getElementById('auth-overlay').style.display = 'none';
-                document.getElementById('main-ui').style.display = 'flex';
+                document.getElementById('command-ui').style.display = 'flex';
+                document.getElementById('top-nav').style.display = 'block';
+                document.getElementById('user-email-display').innerText = currentUser.email;
                 fetchData();
             }
         });
 
+        // --- Data Operations & Odometer ---
         async function fetchData() {
             if (!currentUser) return;
-            const { data, error } = await sb.from('adventures').select('*').eq('user_id', currentUser.id);
-            if (error) { document.getElementById('counter').innerText = "Policy Error!"; return; }
-            
+            const { data } = await sb.from('adventures').select('*').eq('user_id', currentUser.id);
             markerGroup.clearLayers();
             if (data) {
                 data.forEach(item => renderPin(item));
-                document.getElementById('counter').innerText = `${data.length} adventures synced`;
+                // Renamed pins -> stops for the RAM theme
+                document.getElementById('counter').innerText = `${data.length} stops`; 
+                document.getElementById('distance').innerText = `${calculateTotalJourney(data).toLocaleString()} km`;
             }
+        }
+
+        function calculateTotalJourney(data) {
+            if (!data || data.length < 2) return 0;
+            // Sort by creation date to find the true road trip path
+            const sorted = [...data].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            let total = 0;
+            const getDist = (p1, p2) => {
+                const R = 6371; // Earth's Radius
+                const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+                const dLon = (p2.lng - p1.lng) * Math.PI / 180;
+                const a = Math.sin(dLat/2)**2 + Math.cos(p1.lat*Math.PI/180)*Math.cos(p2.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            };
+            for (let i = 0; i < sorted.length - 1; i++) total += getDist(sorted[i].latlng, sorted[i+1].latlng);
+            return Math.round(total);
         }
 
         map.on('click', async (e) => {
@@ -124,29 +209,30 @@
             const name = prompt("Name this spot:");
             if (!name) return;
             const { error } = await sb.from('adventures').insert([{ name, latlng: e.latlng, user_id: currentUser.id }]);
-            if (error) alert("Save Error: " + error.message);
-            else fetchData();
+            if (error) alert(error.message); else fetchData();
         });
 
         function renderPin(item) {
-            const icon = L.divIcon({ className: 'custom-pin', iconSize: [24, 24], iconAnchor: [12, 24] });
-            const m = L.marker([item.latlng.lat, item.latlng.lng], { icon }).addTo(markerGroup);
+            // Updated to use the custom 'ramIcon'
+            const m = L.marker([item.latlng.lat, item.latlng.lng], { icon: ramIcon }).addTo(markerGroup);
             const localPhoto = localStorage.getItem('photo_' + item.id);
             
-            let content = `<div class="popup-container">
-                <strong>${item.name}</strong>
-                <span style="font-size:0.7rem; color:#999; display:block;">${new Date(item.created_at).toLocaleDateString('en-AU')}</span>`;
+            let content = `<div class="popup-container"><strong>${item.name}</strong>`;
             if (localPhoto) content += `<img src="${localPhoto}" class="popup-img">`;
-            else content += `<button class="btn btn-photo" onclick="triggerUpload(${item.id})">📸 Add Local Photo</button>`;
-            content += `<button class="btn btn-delete" style="color:red; background:none; font-size:0.7rem; margin-top:10px;" onclick="deletePin(${item.id})">🗑️ Delete</button></div>`;
+            else content += `<button style="border:none; border-radius:8px; padding:8px; width:100%; margin-top:8px; background:#eee; cursor:pointer;" onclick="triggerUpload(${item.id})">📸 Add Photo</button>`;
+            content += `<button style="color:red; background:none; border:none; font-size:0.7rem; margin-top:10px; width:100%; cursor:pointer;" onclick="deletePin(${item.id})">🗑️ Delete</button></div>`;
             m.bindPopup(content);
         }
 
-        let pendingId = null;
+        // --- UI Utilities ---
+        function toggleMenu() {
+            const d = document.getElementById('menu-dropdown');
+            d.style.display = d.style.display === 'block' ? 'none' : 'block';
+        }
+
         function triggerUpload(id) { pendingId = id; document.getElementById('photo-input').click(); }
         document.getElementById('photo-input').onchange = (e) => {
             const file = e.target.files[0];
-            if (!file || !pendingId) return;
             const reader = new FileReader();
             reader.onload = (event) => { localStorage.setItem('photo_' + pendingId, event.target.result); fetchData(); };
             reader.readAsDataURL(file);
@@ -161,6 +247,7 @@
         }
 
         function centerOnMe() { map.locate({setView: true, maxZoom: 14}); }
+        window.onclick = (e) => { if (!e.target.matches('.btn-circle')) document.getElementById('menu-dropdown').style.display = 'none'; }
     </script>
 </body>
 </html>
